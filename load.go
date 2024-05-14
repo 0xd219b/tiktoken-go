@@ -2,8 +2,10 @@ package tiktoken
 
 import (
 	"crypto/sha1"
+	"embed"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -16,6 +18,7 @@ import (
 
 type BpeLoader interface {
 	LoadTiktokenBpe(tiktokenBpeFile string) (map[string]int, error)
+	LoadTiktokenBpeFromFS(fs embed.FS, path string) (map[string]int, error)
 }
 
 func readFile(blobpath string) ([]byte, error) {
@@ -100,6 +103,37 @@ type defaultBpeLoader struct{}
 
 func (l *defaultBpeLoader) LoadTiktokenBpe(tiktokenBpeFile string) (map[string]int, error) {
 	return loadTiktokenBpe(tiktokenBpeFile)
+}
+
+func (l *defaultBpeLoader) LoadTiktokenBpeFromFS(fs embed.FS, path string) (map[string]int, error) {
+	// Use fs.Open to open the file from the embedded file system
+	file, err := fs.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	contents, err := io.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+	bpeRanks := make(map[string]int)
+	for _, line := range strings.Split(string(contents), "\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, " ")
+		token, err := base64.StdEncoding.DecodeString(parts[0])
+		if err != nil {
+			return nil, err
+		}
+		rank, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return nil, err
+		}
+		bpeRanks[string(token)] = rank
+	}
+	return bpeRanks, nil
 }
 
 func NewDefaultBpeLoader() BpeLoader {

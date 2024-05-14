@@ -1,6 +1,7 @@
 package tiktoken
 
 import (
+	"embed"
 	"errors"
 	"sync"
 )
@@ -116,8 +117,11 @@ func initEncoding(encodingName string) (*Encoding, error) {
 	}
 }
 
+//go:embed tiktoken/qwen.tiktoken
+var tiktokenFS embed.FS
+
 func qwen_base() (*Encoding, error) {
-	ranks, err := bpeLoader.LoadTiktokenBpe("tiktoken/qwen.tiktoken")
+	ranks, err := bpeLoader.LoadTiktokenBpeFromFS(tiktokenFS, "tiktoken/qwen.tiktoken")
 	if err != nil {
 		return nil, err
 	}
